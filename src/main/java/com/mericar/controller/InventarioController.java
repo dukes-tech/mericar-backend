@@ -6,7 +6,8 @@ import com.mericar.service.InventarioService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import com.mericar.dto.MovimientoStockHistorialDTO;
+import java.util.List;
 @RestController
 @RequestMapping("/api/inventario")
 @CrossOrigin("*")
@@ -46,4 +47,40 @@ public class InventarioController {
                     );
         }
     }
+    // ==========================================
+// HISTORIAL DE MOVIMIENTOS POR PRODUCTO
+// ==========================================
+
+@GetMapping("/productos/{idProducto}/movimientos")
+public ResponseEntity<?> obtenerMovimientosPorProducto(
+        @PathVariable Long idProducto
+) {
+
+    try {
+
+        List<MovimientoStockHistorialDTO> movimientos =
+                inventarioService
+                        .obtenerMovimientosPorProducto(
+                                idProducto
+                        );
+
+        return ResponseEntity.ok(
+                java.util.Map.of(
+                        "success", true,
+                        "movimientos", movimientos
+                )
+        );
+
+    } catch (RuntimeException e) {
+
+        return ResponseEntity
+                .badRequest()
+                .body(
+                        java.util.Map.of(
+                                "success", false,
+                                "mensaje", e.getMessage()
+                        )
+                );
+    }
+}
 }

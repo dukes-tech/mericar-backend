@@ -13,23 +13,33 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import com.mericar.dto.MovimientoStockHistorialDTO;
 
+import java.util.List;
+import java.util.stream.Collectors;
+import com.mericar.entity.Usuario;
+import com.mericar.repository.UsuarioRepository;
 @Service
 public class InventarioService {
 
     private final ProductoRepository productoRepository;
     private final RegistroStockRepository registroStockRepository;
     private final DetalleRegistroStockRepository detalleRegistroStockRepository;
+    private final UsuarioRepository usuarioRepository;
+
+
 
     public InventarioService(
-            ProductoRepository productoRepository,
-            RegistroStockRepository registroStockRepository,
-            DetalleRegistroStockRepository detalleRegistroStockRepository
-    ) {
-        this.productoRepository = productoRepository;
-        this.registroStockRepository = registroStockRepository;
-        this.detalleRegistroStockRepository = detalleRegistroStockRepository;
-    }
+        ProductoRepository productoRepository,
+        RegistroStockRepository registroStockRepository,
+        DetalleRegistroStockRepository detalleRegistroStockRepository,
+        UsuarioRepository usuarioRepository
+) {
+    this.productoRepository = productoRepository;
+    this.registroStockRepository = registroStockRepository;
+    this.detalleRegistroStockRepository = detalleRegistroStockRepository;
+    this.usuarioRepository = usuarioRepository;
+}
 
     // ==========================================
     // REGISTRAR MOVIMIENTO
@@ -218,4 +228,152 @@ public class InventarioService {
 
         return productoRepository.save(producto);
     }
+    // ==========================================
+// HISTORIAL DE MOVIMIENTOS POR PRODUCTO
+// ==========================================
+@Transactional
+public void registrarMovimientoSinActualizarStock(
+        Long idProducto,
+        Integer cantidad,
+        String tipoMovimiento,
+        Long idUsuario,
+        String observacion,
+        Integer stockAnterior,
+        Integer stockNuevo
+) {
+
+    RegistroStock registro = new RegistroStock();
+
+    registro.setFecha(LocalDate.now());
+    registro.setIdUsuario(idUsuario);
+    registro.setObservacion(observacion);
+    registro.setFechaCreacion(LocalDateTime.now());
+
+    registro =
+            registroStockRepository.save(registro);
+
+
+    DetalleRegistroStock detalle =
+            new DetalleRegistroStock();
+
+    detalle.setIdRegistroStock(
+            registro.getIdRegistroStock()
+    );
+
+    detalle.setIdProducto(idProducto);
+    detalle.setCantidad(cantidad);
+    detalle.setTipoMovimiento(tipoMovimiento);
+    detalle.setStockAnterior(stockAnterior);
+    detalle.setStockNuevo(stockNuevo);
+
+    detalleRegistroStockRepository.save(detalle);
+}
+public List<MovimientoStockHistorialDTO>
+obtenerMovimientosPorProducto(Long idProducto) {
+
+    // Verificar que el producto exista
+    productoRepository
+            .findById(idProducto)
+            .orElseThrow(() ->
+                    new RuntimeException(
+                            "Producto no encontrado"
+                    )
+            );
+
+    // Obtener movimientos
+    List<DetalleRegistroStock> detalles =
+            detalleRegistroStockRepository
+                    .findByIdProductoOrderByIdDetalleStockDesc(
+                            idProducto
+                    );
+
+    return detalles.stream()
+            .map(detalle -> {
+
+                RegistroStock registro =
+                        registroStockRepository
+                                .findById(
+                                        detalle.getIdRegistroStock()
+                                )
+                                .orElse(null);
+
+                MovimientoStockHistorialDTO dto =
+                        new MovimientoStockHistorialDTO();
+
+                dto.setIdDetalleStock(
+                        detalle.getIdDetalleStock()
+                );
+
+                dto.setIdRegistroStock(
+                        detalle.getIdRegistroStock()
+                );
+
+                dto.setIdProducto(
+                        detalle.getIdProducto()
+                );
+
+                dto.setCantidad(
+                        detalle.getCantidad()
+                );
+
+                dto.setTipoMovimiento(
+                        detalle.getTipoMovimiento()
+                );
+
+                dto.setStockAnterior(
+                        detalle.getStockAnterior()
+                );
+
+                dto.setStockNuevo(
+                        detalle.getStockNuevo()
+                );
+
+                if (registro != null) {
+
+                    dto.setFecha(
+                            registro.getFecha()
+                    );
+
+                    dto.setFechaCreacion(
+                            registro.getFechaCreacion()
+                    );
+
+                    dto.setIdUsuario(
+                                registro.getIdUsuario()
+                        );
+
+                        Usuario usuario = usuarioRepository
+                                .findById(registro.getIdUsuario())
+                                .orElse(null);
+
+                        if (usuario != null) {
+
+                        String nombreCompleto =
+                                ((usuario.getNombres() != null
+                                        ? usuario.getNombres()
+                                        : "")
+                                + " "
+                                + (usuario.getApellidos() != null
+                                        ? usuario.getApellidos()
+                                        : ""))
+                                .trim();
+
+                        dto.setNombreUsuario(
+                                nombreCompleto
+                        );
+                        }
+
+                        dto.setObservacion(
+                                registro.getObservacion()
+                        );
+
+                    dto.setObservacion(
+                            registro.getObservacion()
+                    );
+                }
+
+                return dto;
+            })
+            .collect(Collectors.toList());
+}
 }

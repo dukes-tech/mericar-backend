@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import com.mericar.dto.ReporteProductoDTO;
 import com.mericar.dto.ReporteInventarioDTO;
+import com.mericar.dto.MovimientoStockRequest;
 @Service
 public class EntregaService {
 
@@ -40,7 +41,8 @@ public class EntregaService {
     @Autowired
     private ClienteRepository clienteRepository;
 
-
+@Autowired
+private InventarioService inventarioService;
     // ==========================================
     // GUARDAR ENTREGA
     // ==========================================
@@ -270,13 +272,41 @@ public class EntregaService {
         );
 
 
-        // ==========================================
-        // GUARDAR
-        // ==========================================
+Entrega entregaGuardada =
+        entregaRepository.saveAndFlush(entrega);
 
-        return entregaRepository.save(
-            entrega
-        );
+for (DetalleEntrega detalle : entregaGuardada.getDetalles()) {
+
+    MovimientoStockRequest movimiento =
+            new MovimientoStockRequest();
+
+    movimiento.setIdProducto(
+            detalle.getIdProducto()
+    );
+
+    movimiento.setCantidad(
+            detalle.getCantidad()
+    );
+
+    movimiento.setTipoMovimiento(
+            "SALIDA"
+    );
+
+    movimiento.setIdUsuario(
+            request.getIdUsuario()
+    );
+
+    movimiento.setObservacion(
+            "Salida automática por entrega #"
+                    + entregaGuardada.getIdEntrega()
+    );
+
+    inventarioService.registrarMovimiento(
+            movimiento
+    );
+}
+
+return entregaGuardada;
     }
 
 
@@ -353,59 +383,7 @@ public class EntregaService {
                 new ArrayList<>();
 
 
-            for (
-                DetalleEntrega detalle :
-                entrega.getDetalles()
-            ) {
-
-                DetalleEntregaHistorialDTO productoDTO =
-                    new DetalleEntregaHistorialDTO();
-
-
-                productoDTO.setIdProducto(
-                    detalle.getIdProducto()
-                );
-
-                productoDTO.setCantidad(
-                    detalle.getCantidad()
-                );
-
-                productoDTO.setPrecio(
-                    detalle.getPrecioUnitario()
-                );
-
-                productoDTO.setSubtotal(
-                    detalle.getSubtotal()
-                );
-
-
-                Producto producto =
-                    productoRepository
-                        .findById(
-                            detalle.getIdProducto()
-                        )
-                        .orElse(null);
-
-
-                if (producto != null) {
-
-                    productoDTO.setNombreProducto(
-                        producto.getNombre()
-                    );
-
-                } else {
-
-                    productoDTO.setNombreProducto(
-                        "Producto"
-                    );
-                }
-
-
-                productos.add(
-                    productoDTO
-                );
-            }
-
+          
 
             dto.setProductos(
                 productos
